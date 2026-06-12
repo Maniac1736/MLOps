@@ -11,6 +11,7 @@ from run import (
     close_logging,
     configure_logging,
     execute_job,
+    write_metrics,
 )
 
 
@@ -26,6 +27,37 @@ class LoggingTests(unittest.TestCase):
             self.assertIsNone(first_handler.stream)
             self.assertEqual(len(logger.handlers), 1)
             close_logging(logger)
+
+
+class MetricsWritingTests(unittest.TestCase):
+    def test_existing_fixed_name_temporary_file_is_not_reused(self) -> None:
+        with TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            output = root / "metrics.json"
+            old_temporary_file = root / ".metrics.json.tmp"
+            old_temporary_file.write_text("existing data", encoding="utf-8")
+
+            write_metrics(output, {"status": "success"})
+
+            self.assertEqual(
+                json.loads(output.read_text(encoding="utf-8")),
+                {"status": "success"},
+            )
+            self.assertEqual(
+                old_temporary_file.read_text(encoding="utf-8"),
+                "existing data",
+            )
+
+    def test_failed_replace_removes_temporary_file(self) -> None:
+        with TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            output = root / "metrics.json"
+            output.mkdir()
+
+            with self.assertRaises(RuntimeError):
+                write_metrics(output, {"status": "success"})
+
+            self.assertEqual(list(root.glob(".metrics.json.*.tmp")), [])
 
 
 class SignalCalculationTests(unittest.TestCase):

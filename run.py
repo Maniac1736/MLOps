@@ -9,6 +9,7 @@ import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 from typing import Any
 
 import numpy as np
@@ -156,14 +157,27 @@ def calculate_signal_rate(data: pd.DataFrame, window: int) -> float:
 
 
 def write_metrics(output_path: Path, metrics: dict[str, Any]) -> None:
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    temporary_path = output_path.with_name(f".{output_path.name}.tmp")
+    temporary_path = None
     try:
-        with temporary_path.open("w", encoding="utf-8") as file:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        with NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=output_path.parent,
+            prefix=f".{output_path.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as file:
+            temporary_path = Path(file.name)
             json.dump(metrics, file, indent=2)
             file.write("\n")
         temporary_path.replace(output_path)
     except (OSError, TypeError, ValueError) as exc:
+        if temporary_path is not None:
+            try:
+                temporary_path.unlink(missing_ok=True)
+            except OSError:
+                pass
         raise RuntimeError(f"Unable to write metrics file '{output_path}': {exc}") from exc
 
 
