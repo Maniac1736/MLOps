@@ -7,6 +7,7 @@ import json
 import logging
 import sys
 import time
+import warnings
 from dataclasses import dataclass
 from pathlib import Path
 from tempfile import NamedTemporaryFile
@@ -120,12 +121,23 @@ def load_dataset(input_path: Path) -> pd.DataFrame:
     try:
         if input_path.stat().st_size == 0:
             raise ValidationError(f"Input file is empty: {input_path}")
-        data = pd.read_csv(input_path, on_bad_lines="error")
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", pd.errors.ParserWarning)
+            data = pd.read_csv(
+                input_path,
+                on_bad_lines="error",
+                index_col=False,
+            )
     except ValidationError:
         raise
     except pd.errors.EmptyDataError as exc:
         raise ValidationError(f"Input file is empty: {input_path}") from exc
-    except (pd.errors.ParserError, UnicodeError, OSError) as exc:
+    except (
+        pd.errors.ParserError,
+        pd.errors.ParserWarning,
+        UnicodeError,
+        OSError,
+    ) as exc:
         raise ValidationError(f"Unable to read valid CSV input: {exc}") from exc
 
     if data.empty:

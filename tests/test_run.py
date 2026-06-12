@@ -137,6 +137,30 @@ class JobTests(unittest.TestCase):
             self.assertEqual(metrics["status"], "error")
             self.assertIn("missing required column", metrics["error_message"])
 
+    def test_extra_csv_fields_write_error_metrics(self) -> None:
+        with TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            config = root / "config.yaml"
+            input_csv = root / "data.csv"
+            output = root / "metrics.json"
+            log_file = root / "run.log"
+            config.write_text('seed: 42\nwindow: 1\nversion: "v1"\n', encoding="utf-8")
+            input_csv.write_text("close\n1.0,2.0\n", encoding="utf-8")
+
+            exit_code = execute_job(
+                SimpleNamespace(
+                    input=str(input_csv),
+                    config=str(config),
+                    output=str(output),
+                    log_file=str(log_file),
+                )
+            )
+            metrics = json.loads(output.read_text(encoding="utf-8"))
+
+            self.assertEqual(exit_code, 1)
+            self.assertEqual(metrics["status"], "error")
+            self.assertIn("Unable to read valid CSV input", metrics["error_message"])
+
 
 if __name__ == "__main__":
     unittest.main()
