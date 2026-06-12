@@ -143,6 +143,8 @@ def load_dataset(input_path: Path) -> pd.DataFrame:
 
 
 def calculate_signal_rate(data: pd.DataFrame, window: int) -> float:
+    if isinstance(window, bool) or not isinstance(window, int) or window <= 0:
+        raise ValidationError("Rolling window must be a positive integer.")
     if window > len(data):
         raise ValidationError(
             f"Config window ({window}) cannot exceed row count ({len(data)})."

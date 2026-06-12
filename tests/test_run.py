@@ -61,6 +61,26 @@ class MetricsWritingTests(unittest.TestCase):
 
 
 class SignalCalculationTests(unittest.TestCase):
+    def test_non_positive_window_is_rejected(self) -> None:
+        data = pd.DataFrame({"close": [1.0, 2.0]})
+
+        for window in (0, -1):
+            with self.subTest(window=window):
+                with self.assertRaisesRegex(
+                    ValueError,
+                    "Rolling window must be a positive integer",
+                ):
+                    calculate_signal_rate(data, window=window)
+
+    def test_boolean_window_is_rejected(self) -> None:
+        data = pd.DataFrame({"close": [1.0, 2.0]})
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "Rolling window must be a positive integer",
+        ):
+            calculate_signal_rate(data, window=True)
+
     def test_warmup_rows_are_excluded(self) -> None:
         data = pd.DataFrame({"close": [1.0, 2.0, 3.0, 2.0]})
 
