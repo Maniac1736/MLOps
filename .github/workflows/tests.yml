@@ -32,3 +32,44 @@ jobs:
 
       - name: Run tests
         run: python -m unittest discover -s tests -v
+
+  docker-smoke-test:
+    runs-on: ubuntu-latest
+    needs: unit-tests
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Build image
+        run: docker build -t mlops-task .
+
+      - name: Run default container command
+        shell: bash
+        run: |
+          container_id="$(docker create mlops-task)"
+          trap 'docker rm -f "$container_id" >/dev/null 2>&1 || true' EXIT
+
+          docker start --attach "$container_id" > container-stdout.json
+          docker cp "$container_id:/app/metrics.json" docker-metrics.json
+          docker cp "$container_id:/app/run.log" docker-run.log
+
+      - name: Validate container artifacts
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          stdout_metrics = json.loads(
+              Path("container-stdout.json").read_text(encoding="utf-8")
+          )
+          file_metrics = json.loads(
+              Path("docker-metrics.json").read_text(encoding="utf-8")
+          )
+          log_text = Path("docker-run.log").read_text(encoding="utf-8")
+
+          assert stdout_metrics == file_metrics
+          assert file_metrics["status"] == "success"
+          assert file_metrics["rows_processed"] == 10000
+          assert "Job end | status=success" in log_text
+          PY
