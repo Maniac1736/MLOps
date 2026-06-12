@@ -1,0 +1,7 @@
+2026-06-12T11:15:03+0530 | INFO | Job start
+2026-06-12T11:15:03+0530 | INFO | Config loaded and validated | seed=42 | window=5 | version=v1
+2026-06-12T11:15:03+0530 | INFO | Dataset loaded and validated | rows=10000
+2026-06-12T11:15:03+0530 | INFO | Computing rolling mean | window=5
+2026-06-12T11:15:03+0530 | INFO | Generating binary signal | warmup_rows_excluded=4
+2026-06-12T11:15:03+0530 | INFO | Metrics summary | rows_processed=10000 | signal_rate=0.4991 | latency_ms=22
+2026-06-12T11:15:03+0530 | INFO | Job end | status=success
