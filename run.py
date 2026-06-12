@@ -114,6 +114,37 @@ def best_effort_version(config_path: Path) -> str:
     return "unknown"
 
 
+def paths_alias(first: Path, second: Path) -> bool:
+    return first.resolve(strict=False) == second.resolve(strict=False)
+
+
+def validate_write_paths(
+    input_path: Path,
+    config_path: Path,
+    output_path: Path,
+    log_path: Path,
+) -> None:
+    source_paths = {
+        "input": input_path,
+        "config": config_path,
+    }
+    write_paths = {
+        "output": output_path,
+        "log": log_path,
+    }
+
+    for write_name, write_path in write_paths.items():
+        for source_name, source_path in source_paths.items():
+            if paths_alias(write_path, source_path):
+                raise ValidationError(
+                    f"{write_name.capitalize()} path must differ from "
+                    f"{source_name} path."
+                )
+
+    if paths_alias(output_path, log_path):
+        raise ValidationError("Output path must differ from log path.")
+
+
 def load_dataset(input_path: Path) -> pd.DataFrame:
     if not input_path.is_file():
         raise ValidationError(f"Input file not found: {input_path}")
@@ -204,13 +235,25 @@ def close_logging(logger: logging.Logger) -> None:
 
 def execute_job(args: argparse.Namespace) -> int:
     started_at = time.perf_counter()
+    input_path = Path(args.input)
     config_path = Path(args.config)
     output_path = Path(args.output)
+    log_path = Path(args.log_file)
     logger = logging.getLogger(LOGGER_NAME)
     version = best_effort_version(config_path)
+    output_is_source = any(
+        paths_alias(output_path, source_path)
+        for source_path in (input_path, config_path)
+    )
 
     try:
-        logger = configure_logging(Path(args.log_file))
+        validate_write_paths(
+            input_path,
+            config_path,
+            output_path,
+            log_path,
+        )
+        logger = configure_logging(log_path)
         logger.info("Job start")
 
         config = load_config(config_path)
@@ -223,7 +266,7 @@ def execute_job(args: argparse.Namespace) -> int:
             config.version,
         )
 
-        data = load_dataset(Path(args.input))
+        data = load_dataset(input_path)
         logger.info("Dataset loaded and validated | rows=%d", len(data))
 
         logger.info("Computing rolling mean | window=%d", config.window)
@@ -260,13 +303,20 @@ def execute_job(args: argparse.Namespace) -> int:
             "error_message": str(exc),
         }
         logger.error("Job failed | error=%s", exc, exc_info=True)
-        try:
-            write_metrics(output_path, error_metrics)
-        except Exception as write_exc:
-            logger.critical("Metrics output failed | error=%s", write_exc, exc_info=True)
-            error_metrics["error_message"] = (
-                f"{error_metrics['error_message']}; {write_exc}"
-            )
+        if output_is_source:
+            logger.critical("Metrics output skipped to avoid overwriting an input file")
+        else:
+            try:
+                write_metrics(output_path, error_metrics)
+            except Exception as write_exc:
+                logger.critical(
+                    "Metrics output failed | error=%s",
+                    write_exc,
+                    exc_info=True,
+                )
+                error_metrics["error_message"] = (
+                    f"{error_metrics['error_message']}; {write_exc}"
+                )
         logger.info("Job end | status=error")
         print(json.dumps(error_metrics))
         return 1

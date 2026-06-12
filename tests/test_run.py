@@ -58,6 +58,83 @@ class MetricsWritingTests(unittest.TestCase):
 
 
 class JobTests(unittest.TestCase):
+    def test_log_path_cannot_overwrite_input(self) -> None:
+        with TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            config = root / "config.yaml"
+            input_csv = root / "data.csv"
+            output = root / "metrics.json"
+            original_input = "close\n1.0\n2.0\n"
+            config.write_text('seed: 42\nwindow: 2\nversion: "v1"\n', encoding="utf-8")
+            input_csv.write_text(original_input, encoding="utf-8")
+
+            exit_code = execute_job(
+                SimpleNamespace(
+                    input=str(input_csv),
+                    config=str(config),
+                    output=str(output),
+                    log_file=str(input_csv),
+                )
+            )
+            metrics = json.loads(output.read_text(encoding="utf-8"))
+
+            self.assertEqual(exit_code, 1)
+            self.assertEqual(
+                input_csv.read_text(encoding="utf-8"),
+                original_input,
+            )
+            self.assertIn("Log path must differ", metrics["error_message"])
+
+    def test_output_path_cannot_overwrite_input(self) -> None:
+        with TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            config = root / "config.yaml"
+            input_csv = root / "data.csv"
+            log_file = root / "run.log"
+            original_input = "close\n1.0\n2.0\n"
+            config.write_text('seed: 42\nwindow: 2\nversion: "v1"\n', encoding="utf-8")
+            input_csv.write_text(original_input, encoding="utf-8")
+
+            exit_code = execute_job(
+                SimpleNamespace(
+                    input=str(input_csv),
+                    config=str(config),
+                    output=str(input_csv),
+                    log_file=str(log_file),
+                )
+            )
+
+            self.assertEqual(exit_code, 1)
+            self.assertEqual(
+                input_csv.read_text(encoding="utf-8"),
+                original_input,
+            )
+
+    def test_output_and_log_paths_must_differ(self) -> None:
+        with TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            config = root / "config.yaml"
+            input_csv = root / "data.csv"
+            output = root / "job-output"
+            config.write_text('seed: 42\nwindow: 2\nversion: "v1"\n', encoding="utf-8")
+            input_csv.write_text("close\n1.0\n2.0\n", encoding="utf-8")
+
+            exit_code = execute_job(
+                SimpleNamespace(
+                    input=str(input_csv),
+                    config=str(config),
+                    output=str(output),
+                    log_file=str(output),
+                )
+            )
+            metrics = json.loads(output.read_text(encoding="utf-8"))
+
+            self.assertEqual(exit_code, 1)
+            self.assertIn(
+                "Output path must differ from log path",
+                metrics["error_message"],
+            )
+
     def test_log_setup_failure_still_writes_error_metrics(self) -> None:
         with TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
