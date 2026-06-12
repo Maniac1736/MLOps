@@ -92,13 +92,3 @@ The job reports clean errors for missing or unreadable files, invalid YAML,
 duplicate or missing config fields, invalid CSV structure, empty input, a
 missing `close` column, non-finite or non-numeric close values, invalid rolling
 windows, and write paths that could overwrite source files.
-
-## Tests
-
-```bash
-python -m unittest discover -s tests -v
-```
-
-The suite includes unit tests for config, dataset, signal, logging, and atomic
-metrics behavior, plus process-level CLI contract tests. GitHub Actions runs
-the suite on Python 3.9 and 3.12 and performs a Docker artifact smoke test.
