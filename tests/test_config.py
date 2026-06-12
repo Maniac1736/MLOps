@@ -35,6 +35,15 @@ class ConfigValidationTests(unittest.TestCase):
         ):
             self.load_text("{}\n")
 
+    def test_duplicate_fields_are_rejected(self) -> None:
+        with self.assertRaisesRegex(
+            ValidationError,
+            "found duplicate key",
+        ):
+            self.load_text(
+                'seed: 1\nseed: 2\nwindow: 5\nversion: "v1"\n'
+            )
+
     def test_seed_must_be_an_integer_in_numpy_range(self) -> None:
         invalid_seeds = ("true", "1.5", "-1", "4294967296")
 

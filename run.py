@@ -26,6 +26,38 @@ class ValidationError(ValueError):
     """Raised when an input does not satisfy the job contract."""
 
 
+class UniqueKeyLoader(yaml.SafeLoader):
+    """Safe YAML loader that rejects duplicate mapping keys."""
+
+    def construct_mapping(
+        self,
+        node: yaml.MappingNode,
+        deep: bool = False,
+    ) -> dict[Any, Any]:
+        self.flatten_mapping(node)
+        mapping = {}
+        for key_node, value_node in node.value:
+            key = self.construct_object(key_node, deep=deep)
+            try:
+                duplicate = key in mapping
+            except TypeError as exc:
+                raise yaml.constructor.ConstructorError(
+                    "while constructing a mapping",
+                    node.start_mark,
+                    "found an unhashable key",
+                    key_node.start_mark,
+                ) from exc
+            if duplicate:
+                raise yaml.constructor.ConstructorError(
+                    "while constructing a mapping",
+                    node.start_mark,
+                    f"found duplicate key ({key})",
+                    key_node.start_mark,
+                )
+            mapping[key] = self.construct_object(value_node, deep=deep)
+        return mapping
+
+
 @dataclass(frozen=True)
 class JobConfig:
     seed: int
@@ -69,7 +101,7 @@ def read_yaml(config_path: Path) -> Any:
 
     try:
         with config_path.open("r", encoding="utf-8") as file:
-            return yaml.safe_load(file)
+            return yaml.load(file, Loader=UniqueKeyLoader)
     except (OSError, UnicodeError, yaml.YAMLError) as exc:
         raise ValidationError(f"Unable to read valid YAML config: {exc}") from exc
 
