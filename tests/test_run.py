@@ -6,7 +6,26 @@ import unittest
 
 import pandas as pd
 
-from run import calculate_signal_rate, execute_job
+from run import (
+    calculate_signal_rate,
+    close_logging,
+    configure_logging,
+    execute_job,
+)
+
+
+class LoggingTests(unittest.TestCase):
+    def test_reconfiguring_logger_closes_previous_handler(self) -> None:
+        with TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            logger = configure_logging(root / "first.log")
+            first_handler = logger.handlers[0]
+
+            logger = configure_logging(root / "second.log")
+
+            self.assertIsNone(first_handler.stream)
+            self.assertEqual(len(logger.handlers), 1)
+            close_logging(logger)
 
 
 class SignalCalculationTests(unittest.TestCase):

@@ -48,7 +48,7 @@ def configure_logging(log_path: Path) -> logging.Logger:
     logger = logging.getLogger(LOGGER_NAME)
     logger.setLevel(logging.INFO)
     logger.propagate = False
-    logger.handlers.clear()
+    close_logging(logger)
 
     handler = logging.FileHandler(log_path, mode="w", encoding="utf-8")
     handler.setFormatter(
