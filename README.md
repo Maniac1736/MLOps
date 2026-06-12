@@ -45,6 +45,10 @@ The command exits with code `0` on success and a non-zero code on failure. It
 writes `metrics.json` in either case and prints the final metrics JSON to
 standard output.
 
+The input, config, output, and log paths must be distinct where a write could
+overwrite a source file. Parent directories for metrics and logs are created
+automatically.
+
 ## Docker Run
 
 Run the exact assessment commands:
@@ -55,7 +59,8 @@ docker run --rm mlops-task
 ```
 
 The container writes `/app/metrics.json` and `/app/run.log` during execution
-and prints the final metrics JSON to standard output.
+and prints the final metrics JSON to standard output. The job runs as an
+unprivileged container user.
 
 To retain generated files on the host, mount an output directory:
 
@@ -84,11 +89,16 @@ same input and configuration.
 ## Validation and Error Handling
 
 The job reports clean errors for missing or unreadable files, invalid YAML,
-missing config fields, invalid CSV data, empty input, a missing `close` column,
-non-numeric close values, and rolling windows larger than the dataset.
+duplicate or missing config fields, invalid CSV structure, empty input, a
+missing `close` column, non-finite or non-numeric close values, invalid rolling
+windows, and write paths that could overwrite source files.
 
 ## Tests
 
 ```bash
 python -m unittest discover -s tests -v
 ```
+
+The suite includes unit tests for config, dataset, signal, logging, and atomic
+metrics behavior, plus process-level CLI contract tests. GitHub Actions runs
+the suite on Python 3.9 and 3.12 and performs a Docker artifact smoke test.
