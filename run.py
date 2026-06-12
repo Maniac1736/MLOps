@@ -178,12 +178,13 @@ def execute_job(args: argparse.Namespace) -> int:
     started_at = time.perf_counter()
     config_path = Path(args.config)
     output_path = Path(args.output)
-    logger = configure_logging(Path(args.log_file))
+    logger = logging.getLogger(LOGGER_NAME)
     version = best_effort_version(config_path)
 
-    logger.info("Job start")
-
     try:
+        logger = configure_logging(Path(args.log_file))
+        logger.info("Job start")
+
         config = load_config(config_path)
         version = config.version
         np.random.seed(config.seed)

@@ -36,6 +36,31 @@ class SignalCalculationTests(unittest.TestCase):
 
 
 class JobTests(unittest.TestCase):
+    def test_log_setup_failure_still_writes_error_metrics(self) -> None:
+        with TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            config = root / "config.yaml"
+            input_csv = root / "data.csv"
+            output = root / "metrics.json"
+            log_parent = root / "not-a-directory"
+            config.write_text('seed: 42\nwindow: 2\nversion: "v1"\n', encoding="utf-8")
+            input_csv.write_text("close\n1.0\n2.0\n", encoding="utf-8")
+            log_parent.write_text("blocking file", encoding="utf-8")
+
+            exit_code = execute_job(
+                SimpleNamespace(
+                    input=str(input_csv),
+                    config=str(config),
+                    output=str(output),
+                    log_file=str(log_parent / "run.log"),
+                )
+            )
+            metrics = json.loads(output.read_text(encoding="utf-8"))
+
+            self.assertEqual(exit_code, 1)
+            self.assertEqual(metrics["status"], "error")
+            self.assertIn("not-a-directory", metrics["error_message"])
+
     def test_missing_close_writes_error_metrics(self) -> None:
         with TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
