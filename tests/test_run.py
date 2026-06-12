@@ -2,6 +2,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 import json
+import logging
 import unittest
 
 from run import (
@@ -13,6 +14,25 @@ from run import (
 
 
 class LoggingTests(unittest.TestCase):
+    def test_handler_cleanup_does_not_leak_teardown_errors(self) -> None:
+        class BrokenHandler(logging.Handler):
+            def emit(self, record: logging.LogRecord) -> None:
+                pass
+
+            def flush(self) -> None:
+                raise OSError("flush failed")
+
+            def close(self) -> None:
+                raise OSError("close failed")
+
+        logger = logging.getLogger("broken-handler-test")
+        handler = BrokenHandler()
+        logger.addHandler(handler)
+
+        close_logging(logger)
+
+        self.assertNotIn(handler, logger.handlers)
+
     def test_reconfiguring_logger_closes_previous_handler(self) -> None:
         with TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)

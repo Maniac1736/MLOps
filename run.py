@@ -260,9 +260,16 @@ def write_metrics(output_path: Path, metrics: dict[str, Any]) -> None:
 
 def close_logging(logger: logging.Logger) -> None:
     for handler in logger.handlers[:]:
-        handler.flush()
-        handler.close()
-        logger.removeHandler(handler)
+        try:
+            handler.flush()
+        except Exception:
+            pass
+        try:
+            handler.close()
+        except Exception:
+            pass
+        finally:
+            logger.removeHandler(handler)
 
 
 def execute_job(args: argparse.Namespace) -> int:
