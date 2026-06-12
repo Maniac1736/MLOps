@@ -107,6 +107,64 @@ class CliIntegrationTests(unittest.TestCase):
             self.assertIn("ValidationError", log_text)
             self.assertIn("Job end | status=error", log_text)
 
+    def test_provided_dataset_produces_reproducible_results(self) -> None:
+        stable_fields = {
+            "version",
+            "rows_processed",
+            "metric",
+            "value",
+            "seed",
+            "status",
+        }
+
+        with TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            results = []
+
+            for run_number in (1, 2):
+                output = root / f"metrics-{run_number}.json"
+                log_file = root / f"run-{run_number}.log"
+                result = subprocess.run(
+                    [
+                        sys.executable,
+                        str(RUN_SCRIPT),
+                        "--input",
+                        str(PROJECT_ROOT / "data.csv"),
+                        "--config",
+                        str(PROJECT_ROOT / "config.yaml"),
+                        "--output",
+                        str(output),
+                        "--log-file",
+                        str(log_file),
+                    ],
+                    cwd=PROJECT_ROOT,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+
+                self.assertEqual(result.returncode, 0, result.stderr)
+                results.append(json.loads(output.read_text(encoding="utf-8")))
+
+            first_stable_result = {
+                field: results[0][field] for field in stable_fields
+            }
+            second_stable_result = {
+                field: results[1][field] for field in stable_fields
+            }
+            self.assertEqual(first_stable_result, second_stable_result)
+            self.assertEqual(
+                first_stable_result,
+                {
+                    "version": "v1",
+                    "rows_processed": 10000,
+                    "metric": "signal_rate",
+                    "value": 0.4991,
+                    "seed": 42,
+                    "status": "success",
+                },
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
